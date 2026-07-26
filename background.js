@@ -48,15 +48,19 @@ function scrollStops(scrollHeight, viewportHeight) {
   return stops;
 }
 
-async function canvasBlob(canvas) {
+async function canvasDataUrl(canvas) {
   const blob = await canvas.convertToBlob({ type: "image/png" });
-  const url = URL.createObjectURL(blob);
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  return url;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return `data:image/png;base64,${btoa(binary)}`;
 }
 
 async function downloadCanvas(canvas, filename) {
-  const url = await canvasBlob(canvas);
+  const url = await canvasDataUrl(canvas);
   await chrome.downloads.download({ url, filename, saveAs: false });
 }
 
