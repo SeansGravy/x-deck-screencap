@@ -3,10 +3,6 @@
 A local-first Chrome extension that captures every independently scrollable column in an
 [X Pro](https://pro.x.com/) deck—including content below the fold.
 
-It was designed for decks such as:
-
-`https://pro.x.com/i/decks/2080681249115390305`
-
 ## Install
 
 1. Download or clone this repository.
