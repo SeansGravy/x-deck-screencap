@@ -24,8 +24,9 @@
       const rect = element.getBoundingClientRect();
       return (
         ["auto", "scroll"].includes(style.overflowY) &&
+        element.querySelector('[data-testid="cellInnerDiv"]') !== null &&
         element.scrollHeight > element.clientHeight + 32 &&
-        rect.width >= 240 &&
+        rect.width >= 100 &&
         rect.height >= Math.min(360, innerHeight * 0.5) &&
         rect.right > 0 &&
         rect.left < innerWidth
@@ -52,7 +53,8 @@
 
   async function waitForPaint() {
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    await sleep(350);
+    // captureVisibleTab is limited to two calls per second.
+    await sleep(600);
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -70,18 +72,23 @@
       return;
     }
 
-    if (message.type === "SCROLL_COLUMN") {
-      const column = globalThis.__xDeckScreencapColumns?.[message.index];
-      if (!column?.element?.isConnected) {
-        sendResponse({ ok: false });
-        return;
+    if (message.type === "SCROLL_COLUMNS_TO_PAGE") {
+      const columns = globalThis.__xDeckScreencapColumns || [];
+      for (const column of columns) {
+        if (!column.element?.isConnected) continue;
+        column.element.scrollTop = Math.min(
+          message.page * column.element.clientHeight,
+          column.element.scrollHeight - column.element.clientHeight
+        );
       }
-      column.element.scrollTop = message.top;
       waitForPaint().then(() => sendResponse({
         ok: true,
-        actualTop: column.element.scrollTop,
-        rect: visibleRect(column.element),
-        scrollHeight: column.element.scrollHeight
+        atEnd: columns.every(
+          (column) =>
+            !column.element?.isConnected ||
+            column.element.scrollTop >=
+              column.element.scrollHeight - column.element.clientHeight - 1
+        )
       }));
       return true;
     }
