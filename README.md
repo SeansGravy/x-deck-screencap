@@ -15,12 +15,13 @@ It was designed for decks such as:
 4. Click **Load unpacked** and select this repository's folder.
 5. Open the X Pro deck and wait for its columns to finish loading.
 6. Choose how many page downs to capture per column (the default is `3`).
-7. Click **Capture entire deck**.
+7. Click **Capture deck collage**.
 
-PNG files are downloaded into an `x-deck-screencap` folder. Each deck column gets its
-own image containing the initial viewport plus the configured number of page downs.
-The extension remembers the setting for the next capture. Use `0` to capture only the
-currently visible viewport.
+A side-by-side PNG collage is downloaded into an `x-deck-screencap` folder. Each deck
+column contains the initial viewport plus the configured number of page downs. The
+extension remembers the setting for the next capture. Use `0` to capture only the
+currently visible viewport. Captures taller than Chrome's canvas limit are split into
+numbered collage parts.
 
 ## How it works
 
@@ -31,7 +32,7 @@ extension:
 1. discovers the visible deck's scrollable column containers;
 2. scrolls each one from top to bottom;
 3. captures its visible tiles through the Chrome DevTools protocol;
-4. stitches the tiles into full-height PNGs; and
+4. stitches the tiles into one side-by-side collage; and
 5. restores every column to its original scroll position.
 
 The tab must remain visible while capture runs so X Pro continues rendering its

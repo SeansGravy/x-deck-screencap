@@ -65,7 +65,7 @@ async function downloadCanvas(canvas, filename) {
   await chrome.downloads.download({ url, filename, saveAs: false });
 }
 
-async function captureColumn(tabId, target, column, columnNumber, stamp, pageDowns) {
+async function captureColumn(tabId, target, column, pageDowns) {
   const stops = scrollStops(column.scrollHeight, column.clientHeight, pageDowns);
   const parts = [];
   let totalHeight = 0;
@@ -89,45 +89,62 @@ async function captureColumn(tabId, target, column, columnNumber, stamp, pageDow
     previousTop = result.actualTop;
   }
 
-  let fileCount = 0;
-  let partNumber = 1;
-  let cursor = 0;
-  while (cursor < totalHeight) {
-    const partHeight = Math.min(MAX_CANVAS_HEIGHT, totalHeight - cursor);
-    const canvas = new OffscreenCanvas(column.rect.width, partHeight);
-    const context = canvas.getContext("2d");
-    let sourceCursor = 0;
-    let destinationY = -cursor;
+  return {
+    width: column.rect.width,
+    height: totalHeight,
+    parts
+  };
+}
 
-    for (const part of parts) {
-      if (sourceCursor + part.drawHeight > cursor && destinationY < partHeight) {
-        context.drawImage(
-          part.bitmap,
-          0,
-          part.sourceY,
-          part.bitmap.width,
-          part.drawHeight,
-          0,
-          destinationY,
-          column.rect.width,
-          part.drawHeight
-        );
+async function downloadCollage(columns, stamp) {
+  const width = columns.reduce((sum, column) => sum + column.width, 0);
+  const height = Math.max(...columns.map((column) => column.height));
+  if (width > MAX_CANVAS_HEIGHT) {
+    throw new Error("The deck is too wide to combine into a Chrome canvas.");
+  }
+
+  let fileCount = 0;
+  let sliceTop = 0;
+  while (sliceTop < height) {
+    const sliceHeight = Math.min(MAX_CANVAS_HEIGHT, height - sliceTop);
+    const canvas = new OffscreenCanvas(width, sliceHeight);
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#000";
+    context.fillRect(0, 0, width, sliceHeight);
+
+    let columnX = 0;
+    for (const column of columns) {
+      let partTop = 0;
+      for (const part of column.parts) {
+        const partBottom = partTop + part.drawHeight;
+        if (partBottom > sliceTop && partTop < sliceTop + sliceHeight) {
+          context.drawImage(
+            part.bitmap,
+            0,
+            part.sourceY,
+            part.bitmap.width,
+            part.drawHeight,
+            columnX,
+            partTop - sliceTop,
+            column.width,
+            part.drawHeight
+          );
+        }
+        partTop = partBottom;
       }
-      sourceCursor += part.drawHeight;
-      destinationY += part.drawHeight;
+      columnX += column.width;
     }
 
-    const suffix = totalHeight > MAX_CANVAS_HEIGHT ? `-part-${partNumber}` : "";
-    await downloadCanvas(
-      canvas,
-      `x-deck-screencap/${stamp}-column-${String(columnNumber).padStart(2, "0")}${suffix}.png`
-    );
-    cursor += partHeight;
-    partNumber += 1;
+    const partNumber = Math.floor(sliceTop / MAX_CANVAS_HEIGHT) + 1;
+    const suffix = height > MAX_CANVAS_HEIGHT ? `-part-${partNumber}` : "";
+    await downloadCanvas(canvas, `x-deck-screencap/${stamp}-collage${suffix}.png`);
+    sliceTop += sliceHeight;
     fileCount += 1;
   }
 
-  for (const part of parts) part.bitmap.close();
+  for (const column of columns) {
+    for (const part of column.parts) part.bitmap.close();
+  }
   return fileCount;
 }
 
@@ -154,18 +171,16 @@ async function captureDeck(tabId, requestedPageDowns) {
     attached = true;
     await debuggerCommand(target, "Page.enable");
 
-    let files = 0;
+    const columns = [];
     for (let index = 0; index < discovery.columns.length; index += 1) {
-      files += await captureColumn(
+      columns.push(await captureColumn(
         tabId,
         target,
         discovery.columns[index],
-        index + 1,
-        stamp,
         pageDowns
-      );
+      ));
     }
-    return files;
+    return downloadCollage(columns, stamp);
   } finally {
     await sendToTab(tabId, { type: "RESTORE_COLUMNS" }).catch(() => {});
     if (attached) await chrome.debugger.detach(target).catch(() => {});
