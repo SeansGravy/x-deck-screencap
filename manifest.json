@@ -3,7 +3,7 @@
   "name": "X Deck Screencap",
   "version": "1.0.0",
   "description": "Capture every scrollable column in an X Pro deck, including off-screen content.",
-  "permissions": ["activeTab", "debugger", "downloads", "scripting"],
+  "permissions": ["activeTab", "debugger", "downloads", "scripting", "storage"],
   "host_permissions": ["https://pro.x.com/*"],
   "background": {
     "service_worker": "background.js",

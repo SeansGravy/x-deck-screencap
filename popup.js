@@ -1,5 +1,10 @@
 const button = document.querySelector("#capture");
 const status = document.querySelector("#status");
+const pageDownsInput = document.querySelector("#page-downs");
+
+chrome.storage.local.get({ pageDowns: 3 }).then(({ pageDowns }) => {
+  pageDownsInput.value = pageDowns;
+});
 
 button.addEventListener("click", async () => {
   button.disabled = true;
@@ -11,9 +16,17 @@ button.addEventListener("click", async () => {
       throw new Error("Open an X Pro deck in the active tab first.");
     }
 
+    const pageDowns = Math.max(
+      0,
+      Math.min(100, Math.floor(Number(pageDownsInput.value) || 0))
+    );
+    pageDownsInput.value = pageDowns;
+    await chrome.storage.local.set({ pageDowns });
+
     const result = await chrome.runtime.sendMessage({
       type: "CAPTURE_DECK",
-      tabId: tab.id
+      tabId: tab.id,
+      pageDowns
     });
 
     if (!result?.ok) {

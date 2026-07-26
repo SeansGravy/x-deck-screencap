@@ -14,11 +14,13 @@ It was designed for decks such as:
 3. Enable **Developer mode**.
 4. Click **Load unpacked** and select this repository's folder.
 5. Open the X Pro deck and wait for its columns to finish loading.
-6. Click the extension, then **Capture entire deck**.
+6. Choose how many page downs to capture per column (the default is `3`).
+7. Click **Capture entire deck**.
 
 PNG files are downloaded into an `x-deck-screencap` folder. Each deck column gets its
-own full-height image. Extremely tall columns are split into numbered parts to stay
-within Chrome's canvas limits.
+own image containing the initial viewport plus the configured number of page downs.
+The extension remembers the setting for the next capture. Use `0` to capture only the
+currently visible viewport.
 
 ## How it works
 

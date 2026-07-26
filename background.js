@@ -3,7 +3,7 @@ const MAX_CANVAS_HEIGHT = 30000;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "CAPTURE_DECK") return;
-  captureDeck(message.tabId)
+  captureDeck(message.tabId, message.pageDowns)
     .then((files) => sendResponse({ ok: true, files }))
     .catch((error) => sendResponse({ ok: false, error: error.message }));
   return true;
@@ -40,11 +40,12 @@ async function screenshot(target, rect) {
   return createImageBitmap(dataUrlToBlob(`data:image/png;base64,${result.data}`));
 }
 
-function scrollStops(scrollHeight, viewportHeight) {
+function scrollStops(scrollHeight, viewportHeight, pageDowns) {
   const max = Math.max(0, scrollHeight - viewportHeight);
-  const stops = [];
-  for (let top = 0; top < max; top += viewportHeight) stops.push(top);
-  if (!stops.length || stops.at(-1) !== max) stops.push(max);
+  const limit = Math.min(max, viewportHeight * pageDowns);
+  const stops = [0];
+  for (let top = viewportHeight; top <= limit; top += viewportHeight) stops.push(top);
+  if (stops.at(-1) !== limit) stops.push(limit);
   return stops;
 }
 
@@ -64,8 +65,8 @@ async function downloadCanvas(canvas, filename) {
   await chrome.downloads.download({ url, filename, saveAs: false });
 }
 
-async function captureColumn(tabId, target, column, columnNumber, stamp) {
-  const stops = scrollStops(column.scrollHeight, column.clientHeight);
+async function captureColumn(tabId, target, column, columnNumber, stamp, pageDowns) {
+  const stops = scrollStops(column.scrollHeight, column.clientHeight, pageDowns);
   const parts = [];
   let totalHeight = 0;
   let previousTop = 0;
@@ -130,9 +131,10 @@ async function captureColumn(tabId, target, column, columnNumber, stamp) {
   return fileCount;
 }
 
-async function captureDeck(tabId) {
+async function captureDeck(tabId, requestedPageDowns) {
   const target = { tabId };
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const pageDowns = Math.max(0, Math.min(100, Math.floor(Number(requestedPageDowns) || 0)));
   let attached = false;
 
   try {
@@ -159,7 +161,8 @@ async function captureDeck(tabId) {
         target,
         discovery.columns[index],
         index + 1,
-        stamp
+        stamp,
+        pageDowns
       );
     }
     return files;
