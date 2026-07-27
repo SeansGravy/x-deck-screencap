@@ -11,9 +11,17 @@ button.addEventListener("click", async () => {
   status.textContent = "Finding deck columns…";
 
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !tab.url?.startsWith("https://pro.x.com/")) {
-      throw new Error("Open an X Pro deck in the active tab first.");
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    let tab = activeTab;
+    if (!tab?.url?.startsWith("https://pro.x.com/")) {
+      const deckTabs = await chrome.tabs.query({
+        currentWindow: true,
+        url: "https://pro.x.com/*"
+      });
+      tab = deckTabs.find((candidate) => candidate.url?.includes("/i/decks/")) || deckTabs[0];
+    }
+    if (!tab?.id) {
+      throw new Error("Open an X Pro deck in this Chrome window first.");
     }
 
     const pageDowns = Math.max(
@@ -22,6 +30,8 @@ button.addEventListener("click", async () => {
     );
     pageDownsInput.value = pageDowns;
     await chrome.storage.local.set({ pageDowns });
+    await chrome.tabs.update(tab.id, { active: true });
+    await chrome.windows.update(tab.windowId, { focused: true });
 
     const result = await chrome.runtime.sendMessage({
       type: "CAPTURE_DECK",
